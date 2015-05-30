@@ -5,15 +5,15 @@ import (
 	"github.com/mingzhi/gomath/stat/desc"
 )
 
-type CovCalculatorFFT struct {
+type AutoCovFFT struct {
 	N            int
 	maskXYs, xys []float64
 	mean         *desc.Mean
 	circular     bool
 }
 
-func NewCovCalculatorFFT(maxl int, circular bool) *CovCalculatorFFT {
-	var c CovCalculatorFFT
+func NewAutoCovFFT(maxl int, circular bool) *AutoCovFFT {
+	var c AutoCovFFT
 	c.N = maxl
 	c.maskXYs = make([]float64, c.N)
 	c.xys = make([]float64, c.N)
@@ -23,7 +23,7 @@ func NewCovCalculatorFFT(maxl int, circular bool) *CovCalculatorFFT {
 	return &c
 }
 
-func (c *CovCalculatorFFT) Increment(xs []float64) {
+func (c *AutoCovFFT) Increment(xs []float64) {
 	masks := make([]float64, len(xs))
 	for i := 0; i < len(masks); i++ {
 		masks[i] = 1.0
@@ -39,7 +39,7 @@ func (c *CovCalculatorFFT) Increment(xs []float64) {
 	}
 }
 
-func (c *CovCalculatorFFT) Append(c2 *CovCalculatorFFT) {
+func (c *AutoCovFFT) Append(c2 *AutoCovFFT) {
 	c.mean.Append(c2.mean)
 	for i := 0; i < len(c2.xys); i++ {
 		c.xys[i] += c2.xys[i]
@@ -47,19 +47,19 @@ func (c *CovCalculatorFFT) Append(c2 *CovCalculatorFFT) {
 	}
 }
 
-func (c *CovCalculatorFFT) GetResult(i int) float64 {
+func (c *AutoCovFFT) GetResult(i int) float64 {
 	pxy := c.xys[i] / c.maskXYs[i]
 	pxpy := c.mean.GetResult() * c.mean.GetResult()
 	return pxy - pxpy
 }
 
-type CovCalculator struct {
+type AutoCov struct {
 	N     int
 	corrs []*correlation.BivariateCovariance
 }
 
-func NewCovCalculator(maxl int, bias bool) *CovCalculator {
-	cc := CovCalculator{}
+func NewAutoCov(maxl int, bias bool) *AutoCov {
+	cc := AutoCov{}
 	cc.corrs = make([]*correlation.BivariateCovariance, maxl)
 	for i := 0; i < maxl; i++ {
 		cc.corrs[i] = correlation.NewBivariateCovariance(bias)
@@ -68,33 +68,33 @@ func NewCovCalculator(maxl int, bias bool) *CovCalculator {
 	return &cc
 }
 
-func (cc *CovCalculator) Increment(i int, x, y float64) {
+func (cc *AutoCov) Increment(i int, x, y float64) {
 	cc.corrs[i].Increment(x, y)
 }
 
-func (cc *CovCalculator) GetResult(i int) float64 {
+func (cc *AutoCov) GetResult(i int) float64 {
 	return cc.corrs[i].GetResult()
 }
 
-func (cc *CovCalculator) GetMeanXY(i int) float64 {
+func (cc *AutoCov) GetMeanXY(i int) float64 {
 	return cc.corrs[i].MeanX() * cc.corrs[i].MeanY()
 }
 
-func (cc *CovCalculator) GetN(i int) int {
+func (cc *AutoCov) GetN(i int) int {
 	return cc.corrs[i].GetN()
 }
 
-func (cc *CovCalculator) Append(cc2 *CovCalculator) {
+func (cc *AutoCov) Append(cc2 *AutoCov) {
 	for i := 0; i < len(cc.corrs); i++ {
 		cc.corrs[i].Append(cc2.corrs[i])
 	}
 }
 
-func CalcCtFFT(sequences [][]byte, maxl int) *CovCalculatorFFT {
-	ct := NewCovCalculatorFFT(maxl, false)
+func CalcCtFFT(sequences [][]byte, maxl int) *AutoCovFFT {
+	ct := NewAutoCovFFT(maxl, false)
 	for i := 0; i < len(sequences); i++ {
 		for j := i + 1; j < len(sequences); j++ {
-			subs := subProfile(sequences[i], sequences[j])
+			subs := Compare(sequences[i], sequences[j])
 			ct.Increment(subs)
 		}
 	}
@@ -102,11 +102,11 @@ func CalcCtFFT(sequences [][]byte, maxl int) *CovCalculatorFFT {
 	return ct
 }
 
-func CalcCt(sequences [][]byte, maxl int) *CovCalculator {
-	ct := NewCovCalculator(maxl, false)
+func CalcCt(sequences [][]byte, maxl int) *AutoCov {
+	ct := NewAutoCov(maxl, false)
 	for i := 0; i < len(sequences); i++ {
 		for j := i + 1; j < len(sequences); j++ {
-			subs := subProfile(sequences[i], sequences[j])
+			subs := Compare(sequences[i], sequences[j])
 
 			for l := 0; l < maxl; l++ {
 				for k := 0; k < len(subs)-l; k++ {
