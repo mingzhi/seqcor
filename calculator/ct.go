@@ -90,8 +90,8 @@ func (cc *AutoCov) Append(cc2 *AutoCov) {
 	}
 }
 
-func CalcCtFFT(sequences [][]byte, maxl int) *AutoCovFFT {
-	ct := NewAutoCovFFT(maxl, false)
+func CalcCtFFT(sequences [][]byte, maxl int, circular bool) *AutoCovFFT {
+	ct := NewAutoCovFFT(maxl, circular)
 	for i := 0; i < len(sequences); i++ {
 		for j := i + 1; j < len(sequences); j++ {
 			subs := Compare(sequences[i], sequences[j])
