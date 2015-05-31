@@ -5,6 +5,54 @@ import (
 	"github.com/mingzhi/gomath/stat/desc"
 )
 
+type AutoCovFFTW struct {
+	N            int
+	maskXYs, xys []float64
+	mean         *desc.Mean
+	dft          *correlation.FFTW
+}
+
+func NewAutoCovFFTW(n int, circular bool) *AutoCovFFTW {
+	var c AutoCovFFTW
+	c.dft = correlation.NewFFTW(n, circular)
+	c.N = n
+	c.maskXYs = make([]float64, c.N)
+	c.xys = make([]float64, c.N)
+	c.mean = desc.NewMean()
+
+	return &c
+}
+
+func (c *AutoCovFFTW) Increment(xs []float64) {
+	masks := make([]float64, len(xs))
+	for i := 0; i < len(masks); i++ {
+		masks[i] = 1.0
+		c.mean.Increment(xs[i])
+	}
+
+	maskXYs := c.dft.AutoCorr(masks)
+	xys := c.dft.AutoCorr(xs)
+
+	for i := 0; i < len(c.xys); i++ {
+		c.xys[i] += (xys[i] + xys[(len(xys)-i)%len(xys)])
+		c.maskXYs[i] += (maskXYs[i] + maskXYs[(len(maskXYs)-i)%len(maskXYs)])
+	}
+}
+
+func (c *AutoCovFFTW) Append(c2 *AutoCovFFTW) {
+	c.mean.Append(c2.mean)
+	for i := 0; i < len(c2.xys); i++ {
+		c.xys[i] += c2.xys[i]
+		c.maskXYs[i] += c2.maskXYs[i]
+	}
+}
+
+func (c *AutoCovFFTW) GetResult(i int) float64 {
+	pxy := c.xys[i] / c.maskXYs[i]
+	pxpy := c.mean.GetResult() * c.mean.GetResult()
+	return pxy - pxpy
+}
+
 type AutoCovFFT struct {
 	N            int
 	maskXYs, xys []float64
@@ -88,6 +136,20 @@ func (cc *AutoCov) Append(cc2 *AutoCov) {
 	for i := 0; i < len(cc.corrs); i++ {
 		cc.corrs[i].Append(cc2.corrs[i])
 	}
+}
+
+func CalcCtFFTW(sequences [][]byte, circular bool) *AutoCovFFTW {
+	n := len(sequences[0])
+	ct := NewAutoCovFFTW(n, circular)
+	defer ct.dft.Close()
+	for i := 0; i < len(sequences); i++ {
+		for j := i + 1; j < len(sequences); j++ {
+			subs := Compare(sequences[i], sequences[j])
+			ct.Increment(subs)
+		}
+	}
+
+	return ct
 }
 
 func CalcCtFFT(sequences [][]byte, maxl int, circular bool) *AutoCovFFT {
