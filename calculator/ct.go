@@ -12,9 +12,9 @@ type AutoCovFFTW struct {
 	dft          *correlation.FFTW
 }
 
-func NewAutoCovFFTW(n int, circular bool) *AutoCovFFTW {
+func NewAutoCovFFTW(n int, dft *correlation.FFTW) *AutoCovFFTW {
 	var c AutoCovFFTW
-	c.dft = correlation.NewFFTW(n, circular)
+	c.dft = dft
 	c.N = n
 	c.maskXYs = make([]float64, c.N)
 	c.xys = make([]float64, c.N)
@@ -138,10 +138,9 @@ func (cc *AutoCov) Append(cc2 *AutoCov) {
 	}
 }
 
-func CalcCtFFTW(sequences [][]byte, circular bool) *AutoCovFFTW {
+func CalcCtFFTW(sequences [][]byte, dft *correlation.FFTW) *AutoCovFFTW {
 	n := len(sequences[0])
-	ct := NewAutoCovFFTW(n, circular)
-	defer ct.dft.Close()
+	ct := NewAutoCovFFTW(n, dft)
 	for i := 0; i < len(sequences); i++ {
 		for j := i + 1; j < len(sequences); j++ {
 			subs := Compare(sequences[i], sequences[j])
